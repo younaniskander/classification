@@ -1,47 +1,59 @@
 import streamlit as st
-import numpy as np
-from PIL import Image
 import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
-import requests
-from io import BytesIO
+from PIL import Image
+import numpy as np
+import base64
+import io
 
-# Load the pre-trained model
-model = load_model("cifar10_classification_model.h5")
+# Dummy user database
+users = {
+    "admin": "password123",
+    "user": "testpass"
+}
 
-# Define the classes
-classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+def preprocess_image(image, IMG_SIZE=(192, 192)):
+    """
+    Preprocess the image: resize and normalize.
+    Ensure that the processed image has 3 color channels (RGB).
+    """
+    # Resize the image to match the input shape expected by the model
+    image = image.resize(IMG_SIZE)
 
-# Function to preprocess the image
-def preprocess_image(image_data):
-    img = image.load_img(image_data, target_size=(32, 32))
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    return img_array
+    # Convert the image to a numpy array
+    image_array = np.array(image)
 
-# Function to make predictions
-def predict(image):
-    processed_image = preprocess_image(image)
-    prediction = model.predict(processed_image)
-    predicted_class = np.argmax(prediction)
-    confidence = prediction[0][predicted_class]
-    return classes[predicted_class], confidence
+    # Ensure RGB format (remove alpha channel if present)
+    if image_array.shape[-1] == 4:
+        image_array = image_array[:, :, :3]
 
-# Streamlit app
-def main():
-    st.title("CIFAR-10 Image Classifier")
-    st.write("Upload an image for classification")
+    # Normalize pixel values to be between 0 and 1
+    normalized_image = image_array / 255.0
 
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
+    # Expand dimensions to match model input shape
+    processed_image = np.expand_dims(normalized_image, axis=0)
+    
+    return processed_image
 
+def model_page():
+    st.title("Lung Cancer Detection")
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
         st.image(image, caption='Uploaded Image', use_column_width=True)
+        processed_image = preprocess_image(image)
+        st.image(processed_image[0], caption='Processed Image', use_column_width=True)
+        model_path = 'cifar10_classification_model.h5'
+        model = tf.keras.models.load_model(model_path)
+        try:
+            prediction = model.predict(processed_image)
+            classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+            predicted_class = classes[np.argmax(prediction)]
+            st.write('Prediction:', predicted_class)
+        except Exception as e:
+            st.error(f"Error predicting: {e}")
 
-        if st.button('Classify'):
-            prediction, confidence = predict(uploaded_file)
-            st.write(f"Prediction: {prediction}, Confidence: {confidence}")
+def main():
+    model_page()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
