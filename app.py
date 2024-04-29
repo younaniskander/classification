@@ -1,4 +1,5 @@
 import streamlit as st
+import uvicorn
 import tensorflow as tf
 from PIL import Image
 import numpy as np
