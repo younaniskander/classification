@@ -1,33 +1,47 @@
 import streamlit as st
-import tensorflow as tf  # or your preferred deep learning framework
-import cv2  # for image processing
+import numpy as np
+from PIL import Image
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
+import requests
+from io import BytesIO
 
-st.title('Right and Left Hand Detection')
+# Load the pre-trained model
+model = load_model("cifar10_classification_model.h5")
 
-# Function to load the pre-trained model
-@st.cache(allow_output_mutation=True)
-def load_pretrained_model():
-    model = tf.keras.applications.MobileNetV2(weights='imagenet', include_top=True)
-    # Replace 'MobileNetV2' with the desired pre-trained model
-    # You might need to adjust the model architecture based on your task
-    return model
+# Define the classes
+classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
-model = load_pretrained_model()
+# Function to preprocess the image
+def preprocess_image(image_data):
+    img = image.load_img(image_data, target_size=(32, 32))
+    img_array = image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)
+    return img_array
 
-# Function to process image and make predictions
+# Function to make predictions
 def predict(image):
-    # Preprocess the image
-    # Make predictions using the pre-trained model
-    # Return the predicted class (right or left hand)
+    processed_image = preprocess_image(image)
+    prediction = model.predict(processed_image)
+    predicted_class = np.argmax(prediction)
+    confidence = prediction[0][predicted_class]
+    return classes[predicted_class], confidence
 
-# File uploader
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png"])
+# Streamlit app
+def main():
+    st.title("CIFAR-10 Image Classifier")
+    st.write("Upload an image for classification")
 
-if uploaded_file is not None:
-    # Display the uploaded image
-    image = cv2.imread(uploaded_file)
-    st.image(image, caption='Uploaded Image', use_column_width=True)
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
 
-    # Make predictions
-    prediction = predict(image)
-    st.write('Prediction:', prediction)
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        st.image(image, caption='Uploaded Image', use_column_width=True)
+
+        if st.button('Classify'):
+            prediction, confidence = predict(uploaded_file)
+            st.write(f"Prediction: {prediction}, Confidence: {confidence}")
+
+if __name__ == '__main__':
+    main()
